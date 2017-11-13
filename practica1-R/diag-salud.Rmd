@@ -1,0 +1,168 @@
+---
+title: "Tipología y ciclo de vida de los datos. Práctica 1"
+author: "AnaC"
+date: "November 12, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Objetivo
+
+Información de diagnóstico médico basado en big data.
+
+Se busca inicialmente si en Twitter se habla y se relacionan esos conceptos.
+
+
+## Datos de Twitter utilizando R
+
+Se utiliza RStudio. Para extraer los datos de Twitter se usa la librería *twitteR* siguendo las indicaciones recomendadas en la asignatura de:
+<http://bogdanrau.com/blog/collecting-tweets-using-r-and-the-twitter-search-api>
+
+
+### Usuario desarrollador de Twitter
+
+Se crea la aplicación de twitter _diag-salud_ en <http://apps.twitter.com>
+Y se generan los códigos de acceso de la aplicación (tokens) para que pueda utilizar la API de Twitter.
+
+### API Twitter desde RStudio
+
+Utilizando RStudio, se instalan los paquetes:
+(comentados para no reinstalarlos)
+install.packages("twitteR")
+install.packages("RCurl")
+install.packages("RJSONIO")
+install.packages("stringr")
+
+Se prepara la autenticación e inicio de sesión
+
+```{r sesion}
+library(twitteR)
+library(RCurl)
+library(RJSONIO)
+library(stringr)
+api_key <- "PS3yvXxX89E2W08o6za6oBR98"
+api_secret <- "0wjcRhIKNf1CCCUdsTZNv2sRZdiX6Tspv59a9bOvWbFfQ7zpUU"
+token <- "929642822340431872-kXMXgOexjaSQ3nUrAdUoIdNX4yORb1x"
+token_secret <- "5OiOHdtDwu3ljTpV2p0imNwWLd3O1wJru7lt35fSO1W7l"
+options(httr_oauth_cache=T)
+# option = TRUE para evitar que setup.. pregunte si usa el fichero .httr-oauth
+setup_twitter_oauth(api_key, api_secret, token, token_secret)
+```
+
+Se usará el método *searchTwitter(...)* pero probando antes via web en la dirección <http://twitter.com/search>. 
+
+Consulta:
+```{r search}
+twts <- searchTwitter("'#bigdata' 'health' 'diagnosis'", n=200)
+length(twts)
+```
+La lista de resultados se convierte a tipo _data frame_:
+```{r trans}
+twtsdf <- twListToDF(twts)
+nrow(twtsdf)
+```
+
+Se revisa los tipos de datos:
+```{r ana}
+names(twtsdf)
+str(twtsdf)
+```
+
+Un caso:
+```{r an}
+twtsdf[1, c("id", "screenName", "created","text")]
+```
+
+
+```{r ana2}
+sum(twtsdf$latitud)
+sum(twtsdf$longitude)
+```
+
+```{r ana3}
+twtsdf$created
+```
+Todos los casos son muy recientes, de este mes de noviembre.
+
+Se prueba variando el tipo de resultado:
+
+```{r search2}
+twtsp <- searchTwitter("'#bigdata' 'health' 'diagnosis'", n=200, resultType="popular")
+```
+
+
+```{r search3}
+twtsp <- searchTwitter("'#bigdata' 'health' 'diagnosis'", n=200, resultType="recent")
+```
+
+```{r search4}
+twtsp <- searchTwitter("'#bigdata' 'health' 'diagnosis'", n=200, since="2017-01-01", until="2017-08-31")
+```
+
+Tras diversas pruebas parece que el acceso mediante API _searchTwitter_ devuelve sólamente resultados recientes. En cambio este último caso (utilizando el filtro de fechas entre enero y agosto de 2.017) probado en <http://twitter.com/search> sí que devuelve resultados.
+
+
+Se varía el patrón de búsqueda:
+```{r search5}
+twtsa <- searchTwitter("'big data' 'health' 'diagnosis'", n=200)
+```
+
+```{r todf}
+twtsadf <- twListToDF(twtsa)
+nrow(twtsadf)
+```
+
+Algunos casos se repiten:
+```{r toa}
+twtsdf$id
+twtsadf$id
+```
+
+Se unen los dos resultados, eliminando repetidos:
+```{r todfd}
+twdf <- unique(rbind(twtsdf, twtsadf))
+nrow(twdf)
+```
+Los autores:
+```{r ana4}
+unique(twdf$screenName)
+```
+
+Se guardan los datos actuales en archivo CSV:
+```{r ana5}
+write.csv(twdf,file="diag-salud-dat1.csv")
+```
+
+Se varía de nuevo el patrón de búsqueda utilizando sólo los términos _healthcare_ y _big data_ y ampliando los posibles registros de resultados a 2000:
+```{r search6}
+twtsb <- searchTwitter("'big data' 'healthcare'", n=2000)
+```
+```{r todf2}
+twtsbdf <- twListToDF(twtsb)
+nrow(twtsbdf)
+```
+Se unen los resultados como anteriormente, eliminando repetidos:
+```{r todfd2}
+tdf <- unique(rbind(twdf, twtsbdf))
+nrow(tdf)
+```
+
+
+Se guardan los datos actuales en archivo CSV. Este archivo incluye el contenido de tweets repetidos, que son retweets (valores de los atributos _isRetweet_ como TRUE o _rtweetCount_ > 0):
+```{r ana6}
+write.csv(tdf,file="diag-salud-incRetweets.csv")
+```
+
+Se extraen los no retuiteados, se indica el número de tweets y de autores:
+```{r ana7}
+tudf <- subset(tdf,isRetweet == FALSE)
+nrow(tudf)
+length(unique(tudf$screenName))
+```
+Se guardan los datos en archivo CSV:
+```{r ana8}
+write.csv(tudf,file="diag-salud.csv")
+```
